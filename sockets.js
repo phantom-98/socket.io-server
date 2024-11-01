@@ -32,6 +32,17 @@ const allowJoinRoom = (socket, io, users, tokens) => {
       console.log("Error in allow-join: ", err);
     }
   });
+  socket.on('reject-join', ({roomId, socketId, user}) => {
+    try {
+      console.log("reject-join", roomId, socketId);
+      const host = helperFunctions.getHostUser(users, roomId);
+      if (host && host.socketId === socket.id) {
+        socket.to(socketId).emit("user-reject-join", roomId);
+      }
+    } catch (err) {
+      console.log("Error in reject-join: ", err);
+    }
+  })
   socket.on("allow-all", ({roomId}) => {
     try {
       console.log("allow-all", roomId, socket.id);
