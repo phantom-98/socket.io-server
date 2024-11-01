@@ -1,43 +1,55 @@
-const appendUser = (users, roomID, userID, user, socketId) => {
-  if (users[roomID]) {
-    if (users[roomID].find((user) => user.socketId === socketId)) {
-      return;
-    }
-    users[roomID].push({ socketId, userId: userID, user });
-  } else {
-    users[roomID] = [{ socketId, userId: userID, user }];
-  }
-};
-
-const filterUsers = (users, roomID, socketId) => {
-  if (users[roomID]) {
-    return users[roomID].filter((user) => user.socketId !== socketId);
-  }
-  return [];
-};
-
-const findUserByUserId = (users, roomID, userID) => {
-  if (users[roomID]) {
-    const usersInThisRoom = users[roomID];
-    const user = usersInThisRoom.find((user) => user.userId === userID);
+const getHostUser = (users, roomId) => {
+  if (users[roomId]) {
+    const user = users[roomId].find((user) => user.peerId === roomId);
     return user;
   }
   return undefined;
 };
 
-const findUserBySocketId = (users, roomID, socketID) => {
-  if (users[roomID]) {
-    const usersInThisRoom = users[roomID];
-    const user = usersInThisRoom.find((user) => user.socketId === socketID);
+const appendUser = (users, roomId, peerId, user, socketId, token) => {
+  if (users[roomId]) {
+    const host = getHostUser(users, roomId);
+    if (host && host.socketId === token) {
+      if (users[roomId].find((user) => user.socketId === socketId)) {
+        return;
+      }
+      users[roomId].push({ socketId, peerId, ...user });
+    }
+  } else {
+    if (roomId === peerId) {
+      users[roomId] = [{ socketId, peerId, ...user }];
+    }
+  }
+};
+
+const filterUsers = (users, roomId, socketId) => {
+  if (users[roomId]) {
+    return users[roomId].filter((user) => user.socketId !== socketId);
+  }
+  return [];
+};
+
+const findUserByPeerId = (users, roomId, peerId) => {
+  if (users[roomId]) {
+    const user = users[roomId].find((user) => user.peerId === peerId);
+    return user;
+  }
+  return undefined;
+};
+
+const findUserBySocketId = (users, roomId, socketId) => {
+  if (users[roomId]) {
+    const user = users[roomId].find((user) => user.socketId === socketId);
     return user;
   }
   return undefined;
 };
 
 const helperFunctions = {
+  getHostUser,
   appendUser,
   filterUsers,
-  findUserByUserId,
+  findUserByPeerId,
   findUserBySocketId,
 };
 
