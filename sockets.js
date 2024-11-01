@@ -27,6 +27,7 @@ const allowJoinRoom = (socket, io, users, tokens) => {
       const host = helperFunctions.getHostUser(users, roomId);
       if (host && host.socketId === socket.id) {
         socket.to(socketId).emit("user-allow-join", {roomId, token: socket.id});
+        console.log("allowed user", socketId, user.name)
       }
     } catch (err) {
       console.log("Error in allow-join: ", err);
@@ -38,18 +39,20 @@ const allowJoinRoom = (socket, io, users, tokens) => {
       const host = helperFunctions.getHostUser(users, roomId);
       if (host && host.socketId === socket.id) {
         socket.to(socketId).emit("user-reject-join", roomId);
+        console.log("rejected user", socketId, user.name)
       }
     } catch (err) {
       console.log("Error in reject-join: ", err);
     }
   })
-  socket.on("allow-all", ({roomId}) => {
+  socket.on("allow-all", ({roomId, socketIdList}) => {
     try {
       console.log("allow-all", roomId, socket.id);
       const host = helperFunctions.getHostUser(users, roomId);
       if (host && host.socketId === socket.id) {
         tokens[roomId] = socket.id;
-        socket.to(roomId).emit("user-allow-join", {roomId, token: socket.id});
+        socket.to(socketIdList).emit("user-allow-join", {roomId, token: socket.id});
+        console.log("allowed all user", roomId)
       }
     } catch (err) {
       console.log("Error in allow-all: ", err);
@@ -97,7 +100,7 @@ const disconnect = (socket, io, users, socketToRoom, tokens) => {
           delete tokens[roomID];
         } else {
           users[roomID] = usersInThisRoom;
-          io.to(roomID).emit("user-left", user);
+          io.to(roomID).emit("all-users", users[roomID]);
         }
       }
     } catch (err) {
@@ -110,6 +113,7 @@ const sendMessage = (socket, io, socketToRoom) => {
   socket.on("send-message", (payload) => {
     try {
       io.to(socketToRoom[socket.id]).emit("message", payload);
+      console.log("message sent to room", socketToRoom[socket.id], payload);
     } catch (err) {
       console.log("Error in send message: ", err);
     }
