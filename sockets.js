@@ -1,7 +1,7 @@
 const helperFunctions = require("./utils");
 
 const requestJoinRoom = (socket, io, users, tokens) => {
-  socket.on("request-join", ({ roomId, user }) => {
+  socket.on("request-join", ({ roomId, peerId, user }) => {
     try {
       console.log("request-join", roomId, user, socket.id);
       const host = helperFunctions.getHostUser(users, roomId);
@@ -9,7 +9,7 @@ const requestJoinRoom = (socket, io, users, tokens) => {
         if (tokens[roomId]) {
           socket.emit("user-allow-join", {roomId, token: tokens[roomId]});
         } else {
-          io.to(roomId).emit("user-request-join", {roomId, socketId: socket.id, user});
+          io.to(roomId).emit("user-request-join", {roomId, socketId: socket.id, peerId, user});
         }
       } else {
         socket.emit("host-not-found", roomId);
@@ -20,7 +20,7 @@ const requestJoinRoom = (socket, io, users, tokens) => {
   });
 };
 
-const allowJoinRoom = (socket, io, users, tokens) => {
+const allowJoinRoom = (socket, io, users, tokens, socketToRoom) => {
   socket.on("allow-join", ({ roomId, socketId, user }) => {
     try {
       console.log("allow-join", roomId, socketId, user);
@@ -45,13 +45,22 @@ const allowJoinRoom = (socket, io, users, tokens) => {
       console.log("Error in reject-join: ", err);
     }
   })
-  socket.on("allow-all", ({roomId, socketIdList}) => {
+  socket.on("allow-all", ({roomId, newUsers}) => {
     try {
       console.log("allow-all", roomId, socket.id);
       const host = helperFunctions.getHostUser(users, roomId);
       if (host && host.socketId === socket.id) {
         tokens[roomId] = socket.id;
-        socket.to(socketIdList).emit("user-allow-join", {roomId, token: socket.id});
+        helperFunctions.appendMultiUsers(users, roomId, newUsers);
+        io.to(roomId).emit("multi-users-joined", newUsers);
+        console.log('multi-users-join', newUsers)
+
+        socket.to(newUsers.map(u => {
+          socketToRoom[u.socketId] = roomId;
+          io.sockets.sockets.get(u.socketId).join(roomId);
+
+          return u.socketId;
+        })).emit("all-users", users[roomId]);
         console.log("allowed all user", roomId)
       }
     } catch (err) {
@@ -71,10 +80,22 @@ const joinRoom = (socket, io, users, socketToRoom) => {
       // It lets the user join the room
       socket.join(roomId);
       
-      io.to(roomId).emit("all-users", users[roomId]);
+      socket.emit("all-users", users[roomId]);
+      socket.to(roomId).emit("user-joined", {roomId, peerId, ...user});
       console.log("emit all-users event to user", roomId, users[roomId])
     } catch (err) {
       console.log("Error in join-room: ", err);
+    }
+  });
+};
+
+const readyRoom = (socket) => {
+  socket.on("am-ready", ({roomId, peerId, user}) => {
+    try {
+      console.log("user is ready", roomId, peerId, user);
+      socket.to(roomId).emit("user-ready", {roomId, peerId, ...user});
+    } catch (err) {
+      console.log("Error in ready-room: ", err);
     }
   });
 };
@@ -83,6 +104,7 @@ const disconnect = (socket, io, users, socketToRoom, tokens) => {
   socket.on("disconnect", () => {
     try {
       const roomID = socketToRoom[socket.id];
+      delete socketToRoom[socket.id];
       socket.leave(roomID);
       if (roomID) {
         const user = helperFunctions.findUserBySocketId(
@@ -100,7 +122,8 @@ const disconnect = (socket, io, users, socketToRoom, tokens) => {
           delete tokens[roomID];
         } else {
           users[roomID] = usersInThisRoom;
-          io.to(roomID).emit("all-users", users[roomID]);
+          io.to(roomID).emit("user-left", user);
+          console.log("user left", roomID, user);
         }
       }
     } catch (err) {
@@ -120,12 +143,25 @@ const sendMessage = (socket, io, socketToRoom) => {
   });
 };
 
+const sendSignals = (socket, io, socketToRoom) => {
+  socket.on("send-signal", (payload) => {
+    try {
+      io.to(socketToRoom[socket.id]).emit("signals", payload);
+      console.log("signal sent to room", socketToRoom[socket.id], payload);
+    } catch (err) {
+      console.log("Error in send signal: ", err);
+    }
+  });
+};
+
 const socketFunctions = {
   allowJoinRoom,
   requestJoinRoom,
   joinRoom,
+  readyRoom,
   disconnect,
   sendMessage,
+  sendSignals,
 };
 
 module.exports = socketFunctions;

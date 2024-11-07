@@ -10,7 +10,7 @@ const appendUser = (users, roomId, peerId, user, socketId, token) => {
   if (users[roomId]) {
     const host = getHostUser(users, roomId);
     if (host && host.socketId === token) {
-      if (users[roomId].find((user) => user.socketId === socketId)) {
+      if (users[roomId].find((user) => user.peerId === peerId)) {
         return;
       }
       users[roomId].push({ socketId, peerId, ...user });
@@ -21,6 +21,20 @@ const appendUser = (users, roomId, peerId, user, socketId, token) => {
     }
   }
 };
+
+const appendMultiUsers = (users, roomId, newUsers) => {
+  if (users[roomId]) {
+    newUsers.forEach((u) => {
+      if (users[roomId].find(user => user.peerId === u.peerId)) {
+        u.dup = true;
+      }
+    });
+    newUsers = newUsers.filter(u => !u.dup);
+    users[roomId] = [...users[roomId], ...newUsers];
+  } else {
+    users[roomId] = [...newUsers];
+  }
+}
 
 const filterUsers = (users, roomId, socketId) => {
   if (users[roomId]) {
@@ -48,6 +62,7 @@ const findUserBySocketId = (users, roomId, socketId) => {
 const helperFunctions = {
   getHostUser,
   appendUser,
+  appendMultiUsers,
   filterUsers,
   findUserByPeerId,
   findUserBySocketId,
