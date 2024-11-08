@@ -4,7 +4,7 @@ const app = express();
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*",
+    origin: "https://video-conference-app-tan.vercel.app",
     method: ["GET", "POST"],
   },
 });
